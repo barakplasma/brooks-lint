@@ -72,12 +72,18 @@ const userMessage = diff
   ? `Run brooks-lint ${mode} mode on the following diff.\n\nScope: ${scope}\n\n\`\`\`diff\n${diff}\n\`\`\``
   : `Run brooks-lint ${mode} mode on this project.\n\nScope: ${scope}`;
 
-const message = await client.messages.create({
-  model,
-  max_tokens: 4096,
-  system: systemPrompt,
-  messages: [{ role: "user", content: userMessage }],
-});
+let message;
+try {
+  message = await client.messages.create({
+    model,
+    max_tokens: 4096,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userMessage }],
+  });
+} catch (err) {
+  console.error(JSON.stringify({ error: err.message, mode, scope }, null, 2));
+  process.exit(1);
+}
 
 const report = message.content[0]?.text ?? "";
 

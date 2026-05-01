@@ -41,7 +41,7 @@ const version = packageJson.version;
 
 const sourceCoverage = readText("skills/_shared/source-coverage.md");
 const books = parseFrontmatterBooks(sourceCoverage);
-const sourceCount = books?.length ?? 12;
+const sourceCount = books?.length ?? 0;
 
 const _countWords = [
   "zero", "one", "two", "three", "four", "five", "six", "seven", "eight",

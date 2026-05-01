@@ -27,10 +27,10 @@ export function classify(scenario, aiText) {
   }
 
   const hasIronLaw =
-    /\bSymptom\b/.test(aiText) &&
-    /\bSource\b/.test(aiText) &&
-    /\bConsequence\b/.test(aiText) &&
-    /\bRemedy\b/.test(aiText);
+    (/\bSymptom\b/.test(aiText) && /\bSource\b/.test(aiText) &&
+     /\bConsequence\b/.test(aiText) && /\bRemedy\b/.test(aiText)) ||
+    (/症状/.test(aiText) && /根源/.test(aiText) &&
+     /后果/.test(aiText) && /修复/.test(aiText));
 
   const truePositives  = [...expectedCodes].filter((c) => foundCodes.has(c));
   const falseNegatives = [...expectedCodes].filter((c) => !foundCodes.has(c));

@@ -7,8 +7,12 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith("--")) {
       const key = argv[i].slice(2);
-      args[key] = argv[i + 1] ?? true;
-      i++;
+      if (argv[i + 1] !== undefined && !argv[i + 1].startsWith("--")) {
+        args[key] = argv[i + 1];
+        i++;
+      } else {
+        args[key] = true;
+      }
     }
   }
   return args;
