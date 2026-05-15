@@ -1,5 +1,5 @@
 // Propagates the version from package.json to all other manifests and README.
-// Run as part of the release process after `npm version`.
+// Run after manually bumping version in package.json.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
