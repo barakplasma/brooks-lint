@@ -6,6 +6,17 @@ Guidance for Claude Code when modifying this repository. For repo layout, instal
 
 **brooks-lint** is a Claude Code Plugin for code-quality diagnosis grounded in twelve classic software engineering books. Six independent skills under `skills/` (PR Review, Architecture Audit, Tech Debt, Test Quality, Health Dashboard, Full Sweep) each produce findings in the Iron Law form: **Symptom → Source → Consequence → Remedy**.
 
+## Harness: brooks-lint maintenance
+
+**Goal:** drive changes *to brooks-lint itself* through a verified pipeline so manifests, evals, docs, and trigger boundaries never drift.
+
+**Trigger:** when working ON the plugin — add/edit a skill or guide, refresh the eval suite, fix trigger descriptions, or cut a release — use the `brooks-harness` skill. It runs a sequential subagent pipeline (`.claude/agents/`): **skill-author → eval-curator → consistency-qa → trigger-boundary-auditor → release-manager**. Simple questions, or *using* the analysis skills on some target codebase, do not trigger it.
+
+**Change history:**
+| Date | Change | Target | Reason |
+|------|--------|--------|--------|
+| 2026-06-01 | Initial harness: 5-stage pipeline orchestrator + 4 new agents (skill-author, eval-curator, consistency-qa, release-manager), reusing trigger-boundary-auditor | `.claude/agents/`, `.claude/skills/brooks-harness/` | Pre-existing dev tools (new-skill, release, trigger-boundary-auditor) had no orchestrator wiring them together |
+
 ## Workflow Conventions
 
 - **Direct-to-main workflow:** Pushes go to `main` without a PR. After Edit/Write, the global rule's `agent-skills:code-simplify` + `agent-skills:review` steps still run before commit; only the optional PR-only `code-review:code-review` step is skipped.

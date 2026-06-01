@@ -26,3 +26,6 @@ docs/superpowers/
 
 # Maintainer-local Claude Code config (hooks, permissions)
 .claude/settings.local.json
+
+# brooks-harness orchestrator run notes (runtime artifacts, not the plugin)
+_workspace/
