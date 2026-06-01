@@ -160,6 +160,8 @@ graph TD
 
 [完整画廊](docs/gallery.md) 收录了 brooks-lint 在 Python、TypeScript、Go、Java 上的真实输出——涵盖 PR 审查、带 Mermaid 依赖图的架构审查、技术债评估和测试质量审查。
 
+初次接触这些衰退风险？[**衰退风险实战指南**](https://hyhmrright.github.io/brooks-lint/guide.html) 逐一讲解全部六类——每类的诊断问题、代表症状、出处书目与对策。
+
 ---
 
 ## 基准测试
