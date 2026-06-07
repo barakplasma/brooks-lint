@@ -1,0 +1,154 @@
+# Brooks-Lint GitLab CI integration
+#
+# Copy the job(s) below into your project's .gitlab-ci.yml.
+#
+# Required CI/CD variables (Settings → CI/CD → Variables):
+#
+#   Standard Anthropic API:
+#     ANTHROPIC_API_KEY    - your Anthropic API key
+#
+#   AWS Bedrock (alternative to ANTHROPIC_API_KEY):
+#     AWS_ACCESS_KEY_ID
+#     AWS_SECRET_ACCESS_KEY
+#     AWS_REGION           - e.g. us-east-1
+#
+#   Custom base URL (optional — works with standard API or a proxy):
+#     ANTHROPIC_BASE_URL   - e.g. https://my-proxy.example.com
+#
+#   GitLab (for posting MR notes):
+#     GITLAB_TOKEN         - personal/project access token with `api` scope
+#
+# Optional job variables (set in .gitlab-ci.yml or as CI/CD variables):
+#   BROOKS_LINT_MODE       - review (default), audit, debt, test, health
+#   BROOKS_LINT_MODEL      - claude-sonnet-4-6 (default)
+#   BROOKS_LINT_VERSION    - git ref to pin (default: main)
+#   BROOKS_LINT_FAIL_BELOW - fail if Health Score < this value (default: 0 = never)
+
+# ── Standard Anthropic API ────────────────────────────────────────────────────
+
+brooks-lint:
+  stage: test
+  image: node:20-slim
+  variables:
+    BROOKS_LINT_MODE: "review"
+    BROOKS_LINT_MODEL: "claude-sonnet-4-6"
+    BROOKS_LINT_VERSION: "main"
+    BROOKS_LINT_FAIL_BELOW: "0"
+    GIT_DEPTH: "0"  # full history needed for git diff main...HEAD
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - apt-get update -qq && apt-get install -y -qq git curl
+    - git clone --depth=1 --branch "$BROOKS_LINT_VERSION"
+        https://github.com/barakplasma/brooks-lint.git /tmp/brooks-lint
+    - npm install --prefix /tmp/brooks-lint @anthropic-ai/sdk @anthropic-ai/bedrock-sdk
+    - |
+      node /tmp/brooks-lint/scripts/ci-review.mjs \
+        --mode   "$BROOKS_LINT_MODE" \
+        --model  "$BROOKS_LINT_MODEL" \
+        --skills-dir  /tmp/brooks-lint/skills \
+        --project-dir "$CI_PROJECT_DIR" \
+        > brooks-lint-report.json
+    - |
+      # Post MR note using Node.js to safely encode multiline JSON body
+      if [ -n "$CI_MERGE_REQUEST_IID" ] && [ -n "$GITLAB_TOKEN" ]; then
+        node --input-type=module <<'EOF'
+          import { readFileSync } from 'fs';
+          import { execFileSync } from 'child_process';
+          const r = JSON.parse(readFileSync('brooks-lint-report.json', 'utf8'));
+          const trend = r.trend ? `\n\n**Trend:** ${r.trend}` : '';
+          const body = `## Brooks-Lint Review\n\n${r.report}${trend}\n\n---\n_Automated by [brooks-lint](https://github.com/barakplasma/brooks-lint)_`;
+          const url = `${process.env.CI_API_V4_URL}/projects/${process.env.CI_PROJECT_ID}/merge_requests/${process.env.CI_MERGE_REQUEST_IID}/notes`;
+          execFileSync('curl', ['-sf', '-X', 'POST',
+            '-H', `PRIVATE-TOKEN: ${process.env.GITLAB_TOKEN}`,
+            '-H', 'Content-Type: application/json',
+            '-d', JSON.stringify({ body }),
+            url
+          ], { stdio: 'inherit' });
+        EOF
+      fi
+    - |
+      # Check Health Score threshold
+      node --input-type=module <<EOF
+        import { readFileSync } from 'fs';
+        const r = JSON.parse(readFileSync('brooks-lint-report.json', 'utf8'));
+        const score = r.score ?? 0;
+        const threshold = parseInt(process.env.BROOKS_LINT_FAIL_BELOW ?? '0', 10);
+        if (threshold > 0 && score < threshold) {
+          console.error(\`Health Score \${score} is below threshold \${threshold}\`);
+          process.exit(1);
+        }
+        console.log(\`Health Score: \${score}\`);
+      EOF
+  artifacts:
+    paths:
+      - brooks-lint-report.json
+    when: always
+    expire_in: 7 days
+
+# ── AWS Bedrock variant ───────────────────────────────────────────────────────
+# Uncomment and rename to `brooks-lint` to use Bedrock instead of the standard API.
+# AWS credentials are read from CI/CD variables: AWS_ACCESS_KEY_ID,
+# AWS_SECRET_ACCESS_KEY, AWS_REGION. If your runner uses an IAM instance role,
+# omit the key/secret variables entirely.
+
+# brooks-lint:
+#   stage: test
+#   image: node:20-slim
+#   variables:
+#     BROOKS_LINT_MODE: "review"
+#     BROOKS_LINT_MODEL: "us.anthropic.claude-sonnet-4-5-20241020-v2:0"  # Bedrock model ID
+#     BROOKS_LINT_VERSION: "main"
+#     BROOKS_LINT_FAIL_BELOW: "0"
+#     ANTHROPIC_USE_BEDROCK: "true"
+#     GIT_DEPTH: "0"
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#   script:
+#     - apt-get update -qq && apt-get install -y -qq git curl
+#     - git clone --depth=1 --branch "$BROOKS_LINT_VERSION"
+#         https://github.com/barakplasma/brooks-lint.git /tmp/brooks-lint
+#     - npm install --prefix /tmp/brooks-lint @anthropic-ai/sdk @anthropic-ai/bedrock-sdk
+#     - |
+#       node /tmp/brooks-lint/scripts/ci-review.mjs \
+#         --mode   "$BROOKS_LINT_MODE" \
+#         --model  "$BROOKS_LINT_MODEL" \
+#         --skills-dir  /tmp/brooks-lint/skills \
+#         --project-dir "$CI_PROJECT_DIR" \
+#         > brooks-lint-report.json
+#     - |
+#       if [ -n "$CI_MERGE_REQUEST_IID" ] && [ -n "$GITLAB_TOKEN" ]; then
+#         node --input-type=module <<'EOF'
+#           import { readFileSync } from 'fs';
+#           import { execFileSync } from 'child_process';
+#           const r = JSON.parse(readFileSync('brooks-lint-report.json', 'utf8'));
+#           const trend = r.trend ? `\n\n**Trend:** ${r.trend}` : '';
+#           const body = `## Brooks-Lint Review\n\n${r.report}${trend}\n\n---\n_Automated by [brooks-lint](https://github.com/barakplasma/brooks-lint)_`;
+#           const url = `${process.env.CI_API_V4_URL}/projects/${process.env.CI_PROJECT_ID}/merge_requests/${process.env.CI_MERGE_REQUEST_IID}/notes`;
+#           execFileSync('curl', ['-sf', '-X', 'POST',
+#             '-H', `PRIVATE-TOKEN: ${process.env.GITLAB_TOKEN}`,
+#             '-H', 'Content-Type: application/json',
+#             '-d', JSON.stringify({ body }),
+#             url
+#           ], { stdio: 'inherit' });
+#         EOF
+#       fi
+#     - |
+#       node --input-type=module <<EOF
+#         import { readFileSync } from 'fs';
+#         const r = JSON.parse(readFileSync('brooks-lint-report.json', 'utf8'));
+#         const score = r.score ?? 0;
+#         const threshold = parseInt(process.env.BROOKS_LINT_FAIL_BELOW ?? '0', 10);
+#         if (threshold > 0 && score < threshold) {
+#           console.error(\`Health Score \${score} is below threshold \${threshold}\`);
+#           process.exit(1);
+#         }
+#         console.log(\`Health Score: \${score}\`);
+#       EOF
+#   artifacts:
+#     paths:
+#       - brooks-lint-report.json
+#     when: always
+#     expire_in: 7 days

@@ -63,7 +63,13 @@ function getGitDiff(projectRoot) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-const client = new Anthropic();
+let client;
+if (process.env.ANTHROPIC_USE_BEDROCK === "true") {
+  const { default: AnthropicBedrock } = await import("@anthropic-ai/bedrock-sdk");
+  client = new AnthropicBedrock();
+} else {
+  client = new Anthropic();
+}
 
 const { diff, scope } = getGitDiff(projectDir);
 const systemPrompt = assembleSystemPrompt(mode, skillsDir);
