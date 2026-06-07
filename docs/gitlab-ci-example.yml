@@ -2,15 +2,16 @@
 #
 # Copy the job(s) below into your project's .gitlab-ci.yml.
 #
-# Required CI/CD variables (Settings → CI/CD → Variables):
+# Default: AWS Bedrock. Set CI/CD variables (Settings → CI/CD → Variables):
 #
-#   Standard Anthropic API:
-#     ANTHROPIC_API_KEY    - your Anthropic API key
-#
-#   AWS Bedrock (alternative to ANTHROPIC_API_KEY):
+#   AWS Bedrock (default):
 #     AWS_ACCESS_KEY_ID
 #     AWS_SECRET_ACCESS_KEY
 #     AWS_REGION           - e.g. us-east-1
+#     (omit key/secret when your runner uses an IAM instance role)
+#
+#   Standard Anthropic API (alternative — see commented job at the bottom):
+#     ANTHROPIC_API_KEY    - your Anthropic API key
 #
 #   Custom base URL (optional — works with standard API or a proxy):
 #     ANTHROPIC_BASE_URL   - e.g. https://my-proxy.example.com
@@ -20,20 +21,21 @@
 #
 # Optional job variables (set in .gitlab-ci.yml or as CI/CD variables):
 #   BROOKS_LINT_MODE       - review (default), audit, debt, test, health
-#   BROOKS_LINT_MODEL      - claude-sonnet-4-6 (default)
+#   BROOKS_LINT_MODEL      - Bedrock cross-region inference ID (see default below)
 #   BROOKS_LINT_VERSION    - git ref to pin (default: main)
 #   BROOKS_LINT_FAIL_BELOW - fail if Health Score < this value (default: 0 = never)
 
-# ── Standard Anthropic API ────────────────────────────────────────────────────
+# ── AWS Bedrock (default) ─────────────────────────────────────────────────────
 
 brooks-lint:
   stage: test
   image: node:20-slim
   variables:
     BROOKS_LINT_MODE: "review"
-    BROOKS_LINT_MODEL: "claude-sonnet-4-6"
+    BROOKS_LINT_MODEL: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
     BROOKS_LINT_VERSION: "main"
     BROOKS_LINT_FAIL_BELOW: "0"
+    ANTHROPIC_USE_BEDROCK: "true"
     GIT_DEPTH: "0"  # full history needed for git diff main...HEAD
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -87,21 +89,18 @@ brooks-lint:
     when: always
     expire_in: 7 days
 
-# ── AWS Bedrock variant ───────────────────────────────────────────────────────
-# Uncomment and rename to `brooks-lint` to use Bedrock instead of the standard API.
-# AWS credentials are read from CI/CD variables: AWS_ACCESS_KEY_ID,
-# AWS_SECRET_ACCESS_KEY, AWS_REGION. If your runner uses an IAM instance role,
-# omit the key/secret variables entirely.
+# ── Standard Anthropic API (alternative) ─────────────────────────────────────
+# Uncomment and rename to `brooks-lint` to use the standard Anthropic API
+# instead of Bedrock. Requires ANTHROPIC_API_KEY in CI/CD variables.
 
 # brooks-lint:
 #   stage: test
 #   image: node:20-slim
 #   variables:
 #     BROOKS_LINT_MODE: "review"
-#     BROOKS_LINT_MODEL: "us.anthropic.claude-sonnet-4-5-20241020-v2:0"  # Bedrock model ID
+#     BROOKS_LINT_MODEL: "claude-sonnet-4-6"
 #     BROOKS_LINT_VERSION: "main"
 #     BROOKS_LINT_FAIL_BELOW: "0"
-#     ANTHROPIC_USE_BEDROCK: "true"
 #     GIT_DEPTH: "0"
 #   rules:
 #     - if: $CI_PIPELINE_SOURCE == "merge_request_event"

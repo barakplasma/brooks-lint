@@ -7,14 +7,14 @@ inputs:
     description: "Review mode: review, audit, debt, test, health"
     default: "review"
   anthropic-api-key:
-    description: "Anthropic API key (not required when using AWS Bedrock)"
+    description: "Anthropic API key — set this to use the standard Anthropic API. Omit to use AWS Bedrock (default)."
     required: false
   anthropic-base-url:
     description: "Custom Anthropic API base URL (e.g. for proxies or enterprise endpoints)"
     required: false
     default: ""
   aws-region:
-    description: "AWS region for Bedrock (e.g. us-east-1). Setting this enables Bedrock mode — anthropic-api-key is then not needed."
+    description: "AWS region for Bedrock (e.g. us-east-1). Bedrock is the default when anthropic-api-key is not set."
     required: false
     default: ""
   aws-access-key-id:
@@ -29,8 +29,8 @@ inputs:
     description: "Fail the check if Health Score is below this threshold (0 = never fail)"
     default: "0"
   model:
-    description: "Claude model to use"
-    default: "claude-sonnet-4-6"
+    description: "Claude model to use (Bedrock cross-region inference ID by default)"
+    default: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
 
 outputs:
   score:
@@ -66,7 +66,7 @@ runs:
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         ANTHROPIC_BASE_URL: ${{ inputs.anthropic-base-url }}
-        ANTHROPIC_USE_BEDROCK: ${{ inputs.aws-region != '' && 'true' || 'false' }}
+        ANTHROPIC_USE_BEDROCK: ${{ inputs.anthropic-api-key == '' && 'true' || 'false' }}
         AWS_REGION: ${{ inputs.aws-region }}
         AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
